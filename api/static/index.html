@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Agent System Control Panel</title>
+</head>
+<body>
+<h1>Agent System</h1>
+
+<section id="agents">
+  <h2>Registered Agents</h2>
+  <ul id="agent-list"></ul>
+  <button onclick="refreshAgents()">Refresh</button>
+</section>
+
+<section id="create-agent">
+  <h2>Create Agent</h2>
+  <form id="createAgentForm" onsubmit="createAgent(event)">
+    <label>Agent ID: <input type="text" id="agentId" required></label><br>
+    <label>Capabilities JSON: <textarea id="capabilities" required>{"name":"example","description":"","required_resources":[],"supported_tools":[]}</textarea></label><br>
+    <label>Class Name: <input type="text" id="className" required></label><br>
+    <button type="submit">Create</button>
+  </form>
+</section>
+
+<section id="delete-agent">
+  <h2>Delete Agent</h2>
+  <form id="deleteAgentForm" onsubmit="deleteAgent(event)">
+    <label>Agent ID: <input type="text" id="deleteAgentId" required></label>
+    <button type="submit">Delete</button>
+  </form>
+</section>
+
+<section id="submit-task">
+  <h2>Submit Task</h2>
+  <form id="taskForm" onsubmit="submitTask(event)">
+    <label>Skill: <input type="text" id="skill" required></label><br>
+    <label>Task ID: <input type="text" id="taskId" required></label><br>
+    <label>Data JSON: <textarea id="taskData">{}</textarea></label><br>
+    <button type="submit">Submit</button>
+  </form>
+  <pre id="taskResult"></pre>
+</section>
+
+<script src="/static/script.js"></script>
+</body>
+</html>

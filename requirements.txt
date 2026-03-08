@@ -1,0 +1,10 @@
+langgraph==0.2.46
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+redis==5.0.1
+pika==1.3.2
+pydantic==2.5.3
+python-dotenv==1.0.0
+langchain==0.1.0
+langchain-openai==0.0.2
+requests==2.31.0
