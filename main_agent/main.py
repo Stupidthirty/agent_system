@@ -1,8 +1,13 @@
+import json
+import threading
+import time
+
 from langgraph.graph import StateGraph, END
 from typing import Dict, Any, List
 from agent_base import AgentCapabilities, AgentResponse
 from config import settings
 from agent_system.router import router
+from worker_node.worker import WorkerNode, worker_nodes
 
 class AgentManager:
     """Agent管理器 - 管理所有Agent的生命周期"""
@@ -45,7 +50,7 @@ class AgentManager:
     
     def _start_worker_node(self, agent_id: str, agent):
         """启动Agent的Worker Node"""
-        worker = WorkerNode(worker_id=f"{agent_id}_worker", agent_manager=self)
+        worker = WorkerNode(agent_id=agent_id, agent_manager=self)
         worker.start()
         worker_nodes[agent_id] = worker
 
@@ -84,35 +89,43 @@ class MainAgent:
     def distribute_task(self, state: Dict[str, Any]) -> Dict[str, Any]:
         """任务分发节点"""
         task = state.get("task")
+        task_id = task.get("task_id")
+
+        # 初始化任务上下文（供多 Agent 共享/协作）
+        if task_id:
+            self.router.create_task_context(task_id, {
+                "skill": task.get("skill"),
+                "status": "created",
+                "data": json.dumps(task.get("data", {}))
+            })
+
+        # 广播任务到路由（使用 Pub/Sub 让所有订阅该技能的 Agent 平等接收）
+        self.router.publish_task(task)
         
-        # 广播任务到路由
-        self.router.broadcast_task(task)
-        
-        print("Task broadcasted:", task)
+        print("Task published:", task)
         return state
     
     def wait_for_results(self, state: Dict[str, Any]) -> Dict[str, Any]:
         """等待结果节点"""
-        # 在实际应用中，这里可以使用POLL机制或回调
+        task = state.get("task", {})
+        task_id = task.get("task_id")
+
         print("Waiting for results...")
-        
-        # 监听结果队列
+
+        # 通过 Redis 列表获取结果（由 Worker 发布）
         while True:
-            result = self._poll_result()
+            result = self.router.pop_task_result(task_id, timeout=1)
             if result:
                 state["results"].append(result)
                 if len(state["results"]) >= state.get("expected_results", 1):
                     break
-            
-            time.sleep(1)
-        
+
         return state
-    
+
+    # 保留旧方法以便测试或兼容性
     def _poll_result(self):
-        """轮询结果"""
+        """轮询结果（备用）"""
         try:
-            # 简化实现，实际应用中应该使用RabbitMQ的消费者
-            # 这里返回示例结果
             return {
                 "agent_id": "weather_agent_1",
                 "task_id": "task_123",

@@ -2,6 +2,7 @@ import redis
 import json
 from typing import List, Dict
 from agent_base import AgentCapabilities, AgentResponse
+from config import settings
 
 class Router:
     """Agent信息路由"""
@@ -37,6 +38,54 @@ class Router:
         
         self.agents[agent.agent_id] = capability
         print(f"Agent {agent.agent_id} registered")
+
+    def publish_task(self, task: Dict[str, Any]):
+        """通过 Redis Pub/Sub 发布任务，允许所有订阅该技能的 Agent 处理"""
+        skill = task.get("skill")
+        if not skill:
+            print("No skill specified in task")
+            return
+
+        channel = f"skill:{skill}"
+        try:
+            self.redis_client.publish(channel, json.dumps(task))
+        except Exception as e:
+            print(f"Failed to publish task to channel {channel}: {e}")
+
+    def publish_event(self, event: str, payload: Dict[str, Any]):
+        """发布自定义事件（可用于 agent 间的广播协作）"""
+        channel = f"event:{event}"
+        try:
+            self.redis_client.publish(channel, json.dumps(payload))
+        except Exception as e:
+            print(f"Failed to publish event to channel {channel}: {e}")
+
+    def create_task_context(self, task_id: str, initial: Dict[str, Any] = None):
+        """为任务创建共享上下文（存储在 Redis Hash 中）"""
+        key = f"task:{task_id}"
+        self.redis_client.hset(key, mapping=initial or {})
+
+    def get_task_context(self, task_id: str) -> Dict[str, Any]:
+        """获取任务上下文"""
+        data = self.redis_client.hgetall(f"task:{task_id}")
+        return {k.decode(): v.decode() for k, v in data.items()} if data else {}
+
+    def update_task_context(self, task_id: str, updates: Dict[str, Any]):
+        """更新任务上下文"""
+        self.redis_client.hset(f"task:{task_id}", mapping=updates)
+
+    def push_task_result(self, task_id: str, result: Dict[str, Any]):
+        """将任务结果写入 Redis 列表，供发起方读取"""
+        key = f"task_results:{task_id}"
+        self.redis_client.rpush(key, json.dumps(result))
+
+    def pop_task_result(self, task_id: str, timeout: int = 1):
+        """阻塞或轮询获取任务结果"""
+        key = f"task_results:{task_id}"
+        item = self.redis_client.blpop(key, timeout=timeout)
+        if not item:
+            return None
+        return json.loads(item[1])
     
     def unregister_agent(self, agent_id: str):
         """从路由注销Agent"""
